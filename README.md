@@ -377,9 +377,9 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 This project was inspired by and references the following excellent LINE bot frameworks:
 
-- **[evex-dev/linejs](https://github.com/evex-dev/linejs)** - LINEJS is a JavaScript library for creating a LINE SelfBot
-- **[DeachSword/CHRLINE-Thrift](https://github.com/DeachSword/CHRLINE-Thrift/)** - CHRLINE Thrift protocol implementation
-- **[WEDeach/CHRLINE-Patch](https://github.com/WEDeach/CHRLINE-Patch)** - Self-host API gateway client for LINE
+- **[evex-dev/linejs](https://github.com/evex-dev/linejs)** 
+- **[DeachSword/CHRLINE-Thrift](https://github.com/DeachSword/CHRLINE-Thrift/)** 
+- **[WEDeach/CHRLINE-Patch](https://github.com/WEDeach/CHRLINE-Patch)** 
 
 Special thanks to the developers of these projects for their pioneering work in LINE bot development!
 
