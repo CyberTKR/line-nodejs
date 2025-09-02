@@ -1,6 +1,6 @@
 # 🤖 line-nodejs
 
-**Modern LINE bot framework for Node.js with clean API and working E2EE support**
+ **Modern LINE bot framework for Node.js with clean API and working E2EE support**
 
 
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
@@ -369,7 +369,7 @@ If you encounter any issues or have questions:
 1. Check the [troubleshooting section](#-troubleshooting)
 2. Enable debug mode for detailed logs
 3. Open an issue on GitHub with error details
-4. 📱 **Contact via LINE**: [Add me on LINE](https://line.me/ti/p/KvDfdDCgAW) ![LINE Logo](.images/line.png)
+4. 📱 **Contact via LINE**: <img src=".images/line.png" alt="LINE Logo" width="50" height="50"> [Add me on LINE](https://line.me/ti/p/KvDfdDCgAW)
 
 ---
 
