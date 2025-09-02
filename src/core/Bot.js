@@ -89,6 +89,24 @@ export class Bot extends EventEmitter {
                 
                 if (step.step === 'qr_code') {
                     await this.qrGenerator.generateConsoleQR(step.data.url);
+                    // Also save QR code as image file with sequential numbering
+                    const fs = await import('fs');
+                    const path = await import('path');
+                    
+                    const qrDir = './.images/qr/';
+                    if (!fs.existsSync(qrDir)) {
+                        fs.mkdirSync(qrDir, { recursive: true });
+                    }
+                    
+                    // Find next available number
+                    let counter = 1;
+                    let filename;
+                    do {
+                        filename = `qrcode_${counter}.png`;
+                        counter++;
+                    } while (fs.existsSync(path.join(qrDir, filename)));
+                    
+                    await this.qrGenerator.generateImageQR(step.data.url, path.join(qrDir, filename));
                 }
                 
                 if (step.step === 'login_complete') {

@@ -64,8 +64,6 @@ jspm_packages/
 .dynamodb/
 
 # Storage data (bot data)
-data/
-storage/
 *.json
 *.dat
 

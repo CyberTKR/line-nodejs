@@ -369,6 +369,7 @@ If you encounter any issues or have questions:
 1. Check the [troubleshooting section](#-troubleshooting)
 2. Enable debug mode for detailed logs
 3. Open an issue on GitHub with error details
+4. 📱 **Contact via LINE**: [Add me on LINE](https://line.me/ti/p/KvDfdDCgAW) ![LINE Logo](.images/line.png)
 
 ---
 
