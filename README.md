@@ -2,6 +2,8 @@
 
  **Modern LINE bot framework for Node.js with clean API and working E2EE support**
 
+> ⚠️ **Beta Version**: This framework is in early development and hasn't been extensively tested. While it appears to work, please use with caution and report any issues you encounter.
+
 
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -295,6 +297,15 @@ bot.onInvite(async (invite) => {
 ```
 
 ## 🐛 Troubleshooting
+
+### ⚠️ Important Notice
+
+This framework is in **beta stage** and may have undiscovered issues. Please:
+
+- Test thoroughly before using in production
+- Report bugs and issues on GitHub
+- Keep backups of your data
+- Use at your own risk
 
 ### Common Issues
 
