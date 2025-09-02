@@ -2,7 +2,7 @@
 
 **Modern LINE bot framework for Node.js with clean API and working E2EE support**
 
-[![npm version](https://badge.fury.io/js/line-nodejs.svg)](https://badge.fury.io/js/line-nodejs)
+
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -24,13 +24,15 @@
 ### Installation
 
 ```bash
-npm install line-nodejs
+git clone https://github.com/CyberTKR/line-nodejs.git
+cd line-nodejs
+npm install
 ```
 
 ### Basic Bot Example
 
 ```javascript
-import { Bot } from 'line-nodejs';
+import { Bot } from './src/core/Bot.js';
 
 const bot = new Bot({
     device: "DESKTOPWIN",
@@ -62,7 +64,7 @@ await bot.start();
 ### Token-based Login
 
 ```javascript
-import { Bot } from 'line-nodejs';
+import { Bot } from './src/core/Bot.js';
 
 const bot = new Bot({
     token: 'your-auth-token-here',
