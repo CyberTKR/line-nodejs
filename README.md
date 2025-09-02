@@ -2,24 +2,11 @@
 
  **Modern LINE bot framework for Node.js with clean API and working E2EE support**
 
-> ⚠️ **Beta Version**: This framework is in early development and hasn't been extensively tested. While it appears to work, please use with caution and report any issues you encounter.
+> ⚠️ **Beta Version**: This framework is in active development. It includes comprehensive Thrift protocol implementations for TalkService and other LINE services. While functional, please test thoroughly and report any issues.
 
 
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-## ✨ Features
-
-- 🎯 **Clean API** - Simple and intuitive bot development experience
-- 🔐 **Working E2EE** - Full End-to-End Encryption support with automatic decryption
-- 📦 **Modular Architecture** - Well-organized codebase with clear separation of concerns
-- 🚀 **Modern ES6+** - Uses latest JavaScript features (import/export, async/await, classes)
-- 💾 **Smart Storage** - Automatic data management and persistence
-- ⚡ **High Performance** - Efficient polling and connection management
-- 🛡️ **Robust Error Handling** - Comprehensive error management with graceful recovery
-- 🔑 **QR Code Login** - Easy authentication with QR code generation
-- 📱 **Multi-Device Support** - Works with different LINE client types
-- 🧩 **Command System** - Built-in command handling with extensible architecture
 
 ## 🚀 Quick Start
 
@@ -144,36 +131,11 @@ bot.onError(handler)      // Error handling
 
 ## 🏗️ Architecture
 
-### Project Structure
-
-```
-line-nodejs/
-├── src/
-│   ├── core/                 # Core bot system
-│   │   └── Bot.js           # Main Bot class with clean API
-│   ├── services/            # LINE protocol services
-│   │   ├── client.js        # Base client connection
-│   │   ├── e2ee.js         # E2EE encryption/decryption
-│   │   ├── server.js       # Server communication
-│   │   ├── thrift.js       # Thrift protocol handling
-│   │   └── modules/        # Protocol modules
-│   │       ├── talk.js     # Talk service (messaging)
-│   │       ├── sync.js     # Sync service
-│   │       └── qr_login.js # QR code authentication
-│   ├── commands/           # Built-in commands
-│   │   └── commands.js    # Command implementations
-│   ├── storage/           # Data persistence
-│   │   └── StorageManager.js
-│   └── utils/             # Utilities
-│       ├── Logger.js      # Logging system
-│       ├── Config.js      # Configuration management
-│       ├── QrCodeGenerator.js # QR code generation
-│       └── Helpers.js     # Helper functions
-├── examples/              # Example bots
-│   ├── simple-bot.js     # Basic bot example
-│   └── token-login.js    # Token-based login example
-└── data/                 # Bot data storage (auto-created)
-```
+- **Core Bot System** - Main Bot class with clean API
+- **Thrift Services** - Complete TalkService and protocol implementations
+- **E2EE Handler** - End-to-end encryption support
+- **Command System** - Built-in commands and extensible architecture
+- **Storage Manager** - Automatic data persistence
 
 ## 🔐 E2EE (End-to-End Encryption) Support
 
@@ -246,54 +208,20 @@ Automatic data persistence with simple API:
 
 ## 🔧 Advanced Usage
 
-### Custom Error Handling
-
+### Error Handling
 ```javascript
 bot.onError((error) => {
     console.error('Bot error:', error.message);
-    
-    // Handle specific error types
-    if (error.message.includes('AUTH_FAILED')) {
-        // Handle authentication issues
-        console.log('Please check your token or re-scan QR code');
-    }
 });
 ```
 
 ### QR Code Login
-
 ```javascript
-// When no token is provided, bot will show QR code
-const bot = new Bot({
-    device: "DESKTOPWIN",
-    enableE2EE: true
-});
-
+const bot = new Bot({ device: "DESKTOPWIN", enableE2EE: true });
 bot.onReady((profile) => {
     console.log(`✅ Logged in as: ${profile.displayName}`);
-    console.log(`🔑 Auth Token: ${bot.client.authToken}`);
-    // Save this token for future use
 });
-
-await bot.start(); // Will display QR code for scanning
-```
-
-### Group Auto-Management
-
-```javascript
-bot.onInvite(async (invite) => {
-    const { groupId, inviter } = invite;
-    
-    // Auto-accept invitations
-    await bot.acceptInvitation(groupId);
-    
-    // Send welcome message
-    await bot.send(groupId, `👋 Hello! I was invited by ${inviter}`);
-    
-    // Get group info
-    const groupInfo = await bot.getGroupInfo(groupId);
-    console.log(`Joined group: ${groupInfo.name}`);
-});
+await bot.start(); // Shows QR code
 ```
 
 ## 🐛 Troubleshooting
