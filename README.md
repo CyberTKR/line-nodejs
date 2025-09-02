@@ -369,7 +369,7 @@ If you encounter any issues or have questions:
 1. Check the [troubleshooting section](#-troubleshooting)
 2. Enable debug mode for detailed logs
 3. Open an issue on GitHub with error details
-4. 📱 **Contact via LINE**: <img src=".images/line.png" alt="LINE Logo" width="50" height="50"> [Add me on LINE](https://line.me/ti/p/KvDfdDCgAW)
+4. 📱 **Contact via LINE**: <img src=".images/line.png" alt="LINE Logo" width="10" height="10"> [Add me on LINE](https://line.me/ti/p/KvDfdDCgAW)
 
 ---
 
