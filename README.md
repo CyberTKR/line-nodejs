@@ -335,21 +335,22 @@ const bot = new Bot({
 - **Reliable polling** - Robust message polling with auto-recovery
 - **Low latency** - Fast message processing and response times
 
-## 🔄 Migration from Other Frameworks
+## 🔄 Migration from Other Solutions
 
-### From LINE Bot SDK
+### From Custom LINE Implementations
 
 line-nodejs provides a simpler, more intuitive API while maintaining full functionality:
 
 ```javascript
-// LINE Bot SDK style
-const client = new Client({ channelSecret: '...', channelAccessToken: '...' });
+// Traditional LINE implementation
+// Complex Thrift setup, manual E2EE handling, raw protocol management
 
 // line-nodejs style  
 const bot = new Bot({ token: '...' });
+// Clean API with automatic E2EE, built-in commands, and modern async/await
 ```
 
-### From Custom Solutions
+### From Other Bot Frameworks
 
 Easy migration with familiar event-driven architecture and clean async/await syntax.
 
