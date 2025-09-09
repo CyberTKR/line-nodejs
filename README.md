@@ -16,6 +16,7 @@
 git clone https://github.com/CyberTKR/line-nodejs.git
 cd line-nodejs
 npm install
+npm start
 ```
 
 ### Basic Bot Example
