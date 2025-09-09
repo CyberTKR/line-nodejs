@@ -101,7 +101,7 @@ export class TalkService {
         const request = {
             reqSeq: 0,
             chatMid: chatId,
-            targetUserMids: targetUserMids
+            targetUserMids: [targetUserMids]
         };
         return await this._thriftCall('deleteOtherFromChat', request, 0);
     }
