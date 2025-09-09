@@ -1,4 +1,5 @@
 # Dependencies
+# Updated git config to fix commit author display
 node_modules/
 npm-debug.log*
 yarn-debug.log*
