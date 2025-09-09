@@ -266,6 +266,14 @@ export class Bot extends EventEmitter {
         }
     }
 
+    async deleteOtherFromChat(chatId,targetUserMids) {
+        try {
+            return await this.client.deleteOtherFromChat(chatId,targetUserMids);
+        } catch (error) {
+            Logger.error('DELETE_OTHER_FROM_CHAT', 'Delete other from chat failed:', error.message);
+            throw error;
+        }
+    }
 
 
 

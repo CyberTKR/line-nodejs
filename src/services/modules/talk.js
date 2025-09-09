@@ -97,6 +97,15 @@ export class TalkService {
         return await this._thriftCall('getAllChatMids', request, 0);
     }
 
+    async deleteOtherFromChat(chatId,targetUserMids) {
+        const request = {
+            reqSeq: 0,
+            chatMid: chatId,
+            targetUserMids: targetUserMids
+        };
+        return await this._thriftCall('deleteOtherFromChat', request, 0);
+    }
+
     async acceptChatInvitation(chatId) {
         const request = { 
             reqSeq: 0, 

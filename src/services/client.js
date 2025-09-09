@@ -94,6 +94,9 @@ export class BaseClient extends EventEmitter {
     async acceptChatInvitation(chatId) {
         return this.talkService.acceptChatInvitation(chatId);
     }
+    async deleteOtherFromChat(chatId,targetUserMids) {
+        return this.talkService.deleteOtherFromChat(chatId,targetUserMids);
+    }
     async leaveChat(chatId) {
         return this.talkService.leaveChat(chatId);
     }
