@@ -121,7 +121,7 @@ bot.onError(handler)      // Error handling
     type: 'receive',           // 'send' or 'receive'
     from: 'u1234...',         // Sender ID
     to: 'u5678...',           // Recipient ID (user or group)
-    id: 'msg_...',            // Unique message ID
+    id: '_...',            // Unique message ID
     text: 'Hello',            // Message text content
     contentType: 0,           // Content type (0=text, 1=image, etc.)
     createdTime: 1234567890,  // Unix timestamp
