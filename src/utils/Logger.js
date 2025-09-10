@@ -92,7 +92,6 @@ class Logger {
         console.log(formattedMessage, ...messageArgs);
     }
     
-    // Convenient methods
     static debug(category, message, ...args) {
         this.log('DEBUG', category, message, ...args);
     }

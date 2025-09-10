@@ -200,7 +200,6 @@ export class QrLoginService {
                 this.currentSession.authSessionId
             );
             
-            // Set timeout for PIN verification
             lpConnection.timeout = this.config.timeouts.PIN_VERIFICATION;
 
             const lpClient = thrift.createHttpClient(SecondaryQrCodeLoginServiceClient, lpConnection);

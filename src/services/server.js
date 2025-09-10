@@ -114,10 +114,8 @@ export class LineServer {
                             const textResponse = responseData.toString();
                             try {
                                 parsedResponse = JSON.parse(textResponse);
-                                // Logger.success('Response parsed (JSON)');
                                 resolve(parsedResponse);
                             } catch {
-                                // Logger.success('Response returned (raw)');
                                 resolve(textResponse);
                             }
                         }

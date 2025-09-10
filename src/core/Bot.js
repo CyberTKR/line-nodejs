@@ -89,7 +89,6 @@ export class Bot extends EventEmitter {
                 
                 if (step.step === 'qr_code') {
                     await this.qrGenerator.generateConsoleQR(step.data.url);
-                    // Also save QR code as image file with sequential numbering
                     const fs = await import('fs');
                     const path = await import('path');
                     
@@ -150,7 +149,6 @@ export class Bot extends EventEmitter {
     async _initializeBotSystems() {
         this.storage.initialize(this.profile.mid, this.profile);
         
-        // Check if this was QR login (new token from QR) or existing token
         const isQrLogin = this.client.isQrLogin || false;
         
         if (isQrLogin) {
@@ -422,7 +420,6 @@ export class Bot extends EventEmitter {
                     await this._handleRawOperation(op);
                 } catch (error) {
                     Logger.error('POLLING', 'Operation error:', error.message);
-                    // Don't emit error for operation failures, just log them
                     console.error('Operation processing failed:', error.stack);
                 }
             }
@@ -430,7 +427,6 @@ export class Bot extends EventEmitter {
             Logger.error('POLLING', 'Polling crashed:', error.message);
             console.error('Polling error stack:', error.stack);
             
-            // Restart polling after delay
             setTimeout(() => {
                 Logger.warn('POLLING', 'Restarting polling after crash...');
                 this._startMainThreadPolling();

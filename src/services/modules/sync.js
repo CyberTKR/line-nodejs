@@ -126,7 +126,6 @@ export class SyncService {
                                         rawOp[20][10] = '[E2EE message - decryption error]';
                                     }
                                 } else {
-                                    // E2EE disabled - show placeholder
                                     rawOp[20][10] = '[E2EE message - decryption disabled]';
                                 }
                             }

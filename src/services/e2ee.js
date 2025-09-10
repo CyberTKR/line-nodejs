@@ -21,7 +21,6 @@ export class E2EEStorage {
     }
     
     static clearCache() {
-        // Reset the E2EE disabled message flag for fresh login
         this._hasShownDisabledMessage = false;
         Logger.debug('E2EE', 'E2EE cache cleared');
     }

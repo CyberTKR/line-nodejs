@@ -80,7 +80,6 @@ export async function kickMember(bot, chatId, usersToKick) {
         try {
             await bot.send(chatId, '❌ An error occurred while kicking the members');
         } catch (sendError) {
-            // Silent fail
         }
     }
 }
@@ -89,7 +88,6 @@ export async function cancelAll(bot, chatId, usersToCancel = null) {
     try {
         let inviteeMids = usersToCancel;
         
-        // Eğer kullanıcı listesi verilmemişse, grup davetlilerini otomatik al
         if (!usersToCancel) {
             const chatInfo = await bot.getChats(chatId);
             if (!chatInfo?.chats?.[0]) return;
@@ -128,7 +126,6 @@ export async function cancelAll(bot, chatId, usersToCancel = null) {
         try {
             await bot.send(chatId, '❌ An error occurred while cancelling invitations');
         } catch (sendError) {
-            // Silent fail
         }
     }
 }
@@ -150,7 +147,6 @@ export async function showStats(bot, chatId) {
     }
 }
 
-// Yardım menüsü
 export async function showHelp(bot, chatId) {
     const helpMsg = `🤖 ModularLineBot Commands:
 
@@ -171,7 +167,6 @@ export async function showHelp(bot, chatId) {
     await bot.send(chatId, helpMsg);
 }
 
-// Gruptan ayrıl
 export async function leaveGroup(bot, chatId) {
     try {
         await bot.send(chatId, 'Goodbye! 👋 Leaving the group...');
@@ -182,7 +177,6 @@ export async function leaveGroup(bot, chatId) {
     }
 }
 
-// Basit yanıtlar
 export async function sayHi(bot, chatId) {
     await bot.send(chatId, 'Hello! 👋');
 }
@@ -204,7 +198,6 @@ export async function tellJoke(bot, chatId) {
     await bot.send(chatId, '😂 Why is the PC cold? Windows is open!');
 }
 
-// Tüm chat listesi
 export async function getAllChatMids(bot, chatId) {
     try {
         const result = await bot.getAllChatMids(true, true);
@@ -241,7 +234,6 @@ export async function getAllChatMids(bot, chatId) {
             });
         }
         
-        // Mesaj çok uzunsa parçalara böl
         if (message.length > 1000) {
             const chunks = [];
             for (let i = 0; i < message.length; i += 1000) {

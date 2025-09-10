@@ -13,7 +13,6 @@ export class TalkService {
             maxDelay: 10000
         };
         
-        // Fire and forget için hazır client
         this.TalkService = require('./talk_thrift/TalkService.cjs');
         this.thriftLib = require('thrift');
     }

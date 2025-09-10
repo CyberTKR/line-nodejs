@@ -26,7 +26,6 @@ export class QrCodeGenerator {
         } catch (error) {
             Logger.error('QR_GEN', 'Failed to generate console QR:', error.message);
             
-            // Fallback: Just show the URL
             Logger.warn('QR_GEN', '⚠️  QR code display failed, use this URL:');
             Logger.info('QR_GEN', url);
             return false;

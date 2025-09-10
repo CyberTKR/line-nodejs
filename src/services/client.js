@@ -78,7 +78,6 @@ export class BaseClient extends EventEmitter {
         try {
             Logger.info('QR_FLOW', 'Delegating to QrLoginService...');
             
-            // Mark as QR login
             this.isQrLogin = true;
             
             for await (const step of this.qrService.qrLoginFlow()) {
