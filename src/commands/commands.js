@@ -65,6 +65,74 @@ export async function showChatInfo(bot, chatId) {
     }
 }
 
+export async function kickMember(bot, chatId, usersToKick) {
+    try {
+        const kickPromises = usersToKick.map(async (userId) => {
+            try {
+                await bot.deleteOtherFromChat(chatId, userId);
+                return { userId, success: true };
+            } catch (kickError) {
+                return { userId, success: false, error: kickError.message };
+            }
+        });
+
+    } catch (error) {
+        try {
+            await bot.send(chatId, '❌ An error occurred while kicking the members');
+        } catch (sendError) {
+            // Silent fail
+        }
+    }
+}
+
+export async function cancelAll(bot, chatId, usersToCancel = null) {
+    try {
+        let inviteeMids = usersToCancel;
+        
+        // Eğer kullanıcı listesi verilmemişse, grup davetlilerini otomatik al
+        if (!usersToCancel) {
+            const chatInfo = await bot.getChats(chatId);
+            if (!chatInfo?.chats?.[0]) return;
+            const chat = chatInfo.chats[0];
+            
+            inviteeMids = [];
+            if (chat.extra?.groupExtra?.inviteeMids) {
+                inviteeMids = Object.keys(chat.extra.groupExtra.inviteeMids);
+            }
+            
+            if (inviteeMids.length === 0) {
+                await bot.send(chatId, '❌ No pending invitations to cancel');
+                return;
+            }
+        }
+        
+        const cancelPromises = inviteeMids.map(async (userId) => {
+            try {
+                await bot.cancelChatInvitation(chatId, userId);
+                return { userId, success: true };
+            } catch (cancelError) {
+                return { userId, success: false, error: cancelError.message };
+            }
+        });
+        
+        const results = await Promise.allSettled(cancelPromises);
+        const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+        const failed = results.length - successful;
+        
+        const message = successful === inviteeMids.length 
+            ? `✅ All ${successful} invitations cancelled successfully!`
+            : `⚡ Cancel completed: ${successful} success, ${failed} failed (${inviteeMids.length} total)`;
+            
+        await bot.send(chatId, message);
+    } catch (error) {
+        try {
+            await bot.send(chatId, '❌ An error occurred while cancelling invitations');
+        } catch (sendError) {
+            // Silent fail
+        }
+    }
+}
+
 export async function showStats(bot, chatId) {
     try {
         const stats = bot.stats || { messages: 0 };

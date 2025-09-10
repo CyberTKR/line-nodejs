@@ -49,9 +49,6 @@ export class SyncService {
             pollingInterval: 1000,
             ...options
         };
-
-        // Logger.polling(`Starting sync polling with interval: ${pollingInterval}ms`);
-        // Logger.startup('Starting real-time polling from revision:', this.syncState.talk.revision);
         
         let consecutive410Errors = 0;
         let lastSuccessfulSync = Date.now();
@@ -62,22 +59,17 @@ export class SyncService {
                     ...this.syncState.talk,
                     limit: 100
                 });
-
-                // Reset error counters on successful sync
                 this.errorCount = 0;
                 consecutive410Errors = 0;
                 lastSuccessfulSync = Date.now();
-                
-                // Logger.debug(`Sync response: operations=${response.operationResponse?.operations?.length || 0}`);
+
 
                 if (response.fullSyncResponse) {
                     if (response.fullSyncResponse.nextRevision && 
                         typeof response.fullSyncResponse.nextRevision === 'number' &&
                         response.fullSyncResponse.nextRevision > 0) {
                         this.syncState.talk.revision = response.fullSyncResponse.nextRevision;
-                        // Logger.debug('Full sync response, updated revision to:', this.syncState.talk.revision);
                     } else {
-                        // Logger.debug('Full sync response with invalid nextRevision');
                     }
                     continue;
                 }
@@ -85,12 +77,10 @@ export class SyncService {
                 if (response.operationResponse) {
                     if (response.operationResponse.globalEvents?.lastRevision) {
                         this.syncState.talk.globalRev = response.operationResponse.globalEvents.lastRevision;
-                        // Logger.success('Updated globalRev to:', this.syncState.talk.globalRev);
                     }
                     
                     if (response.operationResponse.individualEvents?.lastRevision) {
                         this.syncState.talk.individualRev = response.operationResponse.individualEvents.lastRevision;
-                        // Logger.success('Updated individualRev to:', this.syncState.talk.individualRev);
                     }
                 }
 
@@ -99,14 +89,10 @@ export class SyncService {
                         
                         const opType = rawOp[3] || 0;
                         const revision = rawOp[1] || 0;
-                        
-                        // Logger.event(`Operation: ${getOperationTypeName(opType)} (${opType}) - Rev: ${revision}`);
-                        
                         if (revision > this.syncState.talk.revision) {
                             this.syncState.talk.revision = revision;
                         }
                         
-                        // Handle E2EE key registration operations
                         if (opType === 72) { // REGISTER_E2EE_PUBLICKEY
                             Logger.warn('🔄 E2EE key registration detected - may affect future decryption');
                             if (e2eeHandler) {
@@ -115,13 +101,11 @@ export class SyncService {
                         }
                         
                         if ((opType === 25 || opType === 26) && rawOp[20]) {
-                            // Logger.message('Message operation detected');
                             
                             if (E2EEHandler.isEncrypted(rawOp[20])) {
                                 const enableE2EE = this.config?.enableE2EE;
                                 
                                 if (enableE2EE === true && e2eeHandler) {
-                                    // Logger.e2ee('🔓 E2EE enabled - attempting decryption...');
                                     try {
                                         const messageForDecrypt = {
                                             from: rawOp[20][1],
@@ -160,29 +144,18 @@ export class SyncService {
                 
                 if (error.message && error.message.includes('HTTP 410')) {
                     consecutive410Errors++;
-                    // Logger.warn(`HTTP 410 Gone detected (${consecutive410Errors}/5) - attempting recovery...`);
-                    
-                    // Progressive recovery strategy
                     if (consecutive410Errors === 1) {
-                        // First 410: Simple retry with longer delay
-                        // Logger.warn('First 410 error, waiting before retry...');
                         await sleep(pollingInterval * 3);
                     } else if (consecutive410Errors === 2) {
-                        // Second 410: Reset sync state and try full sync
-                        // Logger.warn('Second 410 error, resetting sync state');
                         this.resetSyncState();
                         await sleep(pollingInterval * 5);
                     } else if (consecutive410Errors >= 3 && consecutive410Errors <= 4) {
-                        // Multiple 410s: Wait longer, force full sync
-                        // Logger.warn(`Multiple 410 errors (${consecutive410Errors}), forcing full sync recovery`);
                         await this._attemptFullSyncRecovery();
                         await sleep(pollingInterval * 10);
                     } else {
-                        // Too many 410s: Circuit breaker pattern
-                        // Logger.error('Too many consecutive 410 errors, entering recovery mode');
                         await sleep(pollingInterval * 30);
                         this.resetSyncState();
-                        consecutive410Errors = 0; // Reset to allow retry
+                        consecutive410Errors = 0;
                     }
                 } else if (error.message && (error.message.includes('timeout') || error.message.includes('ECONNRESET'))) {
                     Logger.warn('Network error detected, backing off...');
@@ -196,7 +169,6 @@ export class SyncService {
                 }
             }
 
-            // Health check: If no successful sync for too long, reset
             const timeSinceLastSuccess = Date.now() - lastSuccessfulSync;
             if (timeSinceLastSuccess > 300000) { // 5 minutes
                 Logger.warn('No successful sync for 5 minutes, resetting state');
@@ -220,11 +192,9 @@ export class SyncService {
             return baseDelay;
         }
         
-        // Special handling for 410 errors
         if (consecutive410Errors > 0) {
             const maxBackoff = baseDelay * 20; // Higher max for 410 errors
             const backoffDelay = Math.min(baseDelay * Math.pow(2, consecutive410Errors), maxBackoff);
-            // Logger.debug(`410 backoff delay: ${backoffDelay}ms (410 error count: ${consecutive410Errors})`);
             return backoffDelay;
         }
         
@@ -239,23 +209,20 @@ export class SyncService {
         try {
             Logger.info('Attempting full sync recovery...');
             
-            // Force a full sync by resetting to 0
             const previousState = { ...this.syncState.talk };
             this.resetSyncState();
             
-            // Try to get a fresh sync response
             const response = await this.sync({
                 revision: 0,
                 globalRev: 0,
                 individualRev: 0,
-                limit: 1 // Just get minimal response to reestablish connection
+                limit: 1 
             });
             
             if (response.fullSyncResponse && response.fullSyncResponse.nextRevision) {
                 Logger.success('Full sync recovery successful');
                 return true;
             } else if (response.operationResponse) {
-                // Update with any available revision info
                 if (response.operationResponse.globalEvents?.lastRevision) {
                     this.syncState.talk.globalRev = response.operationResponse.globalEvents.lastRevision;
                 }

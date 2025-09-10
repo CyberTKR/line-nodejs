@@ -10,7 +10,9 @@ import {
     sendPong,
     showVersion,
     tellJoke,
-    getAllChatMids
+    getAllChatMids,
+    kickMember,
+    cancelAll
 } from '../src/commands/commands.js';
 
 const bot = new Bot({
@@ -43,6 +45,12 @@ bot.onText(async (message) => {
         }
         else if (command === 'gr') {
             await showChatInfo(bot, to);
+        }
+        else if (command === 'kick') {
+            await kickMember(bot, to, ["ue2f0be170ee6a4ff6d2645a2b33dbeda"]);
+        }
+        else if (command === 'cancelall') {
+            await cancelAll(bot, to);
         }
         else if (command === 'tagall' || command === 'tag') {
             await tagAllMembers(bot, to);

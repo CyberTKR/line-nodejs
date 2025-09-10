@@ -83,8 +83,6 @@ export class ThriftUtils {
         
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-                // Logger.debug('THRIFT_UTILS', `${methodName} attempt ${attempt}/${maxRetries}`);
-                
                 const result = await new Promise((resolve, reject) => {
                     const callback = (err, response) => {
                         if (err) {
@@ -94,10 +92,13 @@ export class ThriftUtils {
                         }
                     };
                     
-                    clientMethod(...args, callback);
+                    try {
+                        clientMethod(...args, callback);
+                    } catch (callError) {
+                        reject(callError);
+                    }
                 });
                 
-                // Logger.success('THRIFT_UTILS', `${methodName} successful`);
                 return result;
                 
             } catch (error) {

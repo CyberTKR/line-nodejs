@@ -12,12 +12,15 @@ export class TalkService {
             baseDelay: 1000,
             maxDelay: 10000
         };
+        
+        // Fire and forget için hazır client
+        this.TalkService = require('./talk_thrift/TalkService.cjs');
+        this.thriftLib = require('thrift');
     }
 
     async _thriftCall(methodName, ...args) {
-        const TalkService = require('./talk_thrift/TalkService.cjs');
         const connection = ThriftUtils.createTalkConnection(this.config);
-        const client = require('thrift').createHttpClient(TalkService, connection);
+        const client = this.thriftLib.createHttpClient(this.TalkService, connection);
 
         try {
             const result = await ThriftUtils.executeThriftCall(
@@ -38,11 +41,27 @@ export class TalkService {
             ThriftUtils.safeCloseConnection(connection, 'TALK');
             
             if (methodName.includes('E2EE') && (lastError.name === 'TalkException' || lastError.message.includes('TalkException'))) {
-                // Logger.debug(`E2EE operation ${methodName} not available - this is normal for some accounts`);
             } else {
                 Logger.error(`${methodName} failed after ${this.retryConfig.maxRetries} attempts:`, lastError.message);
             }
             throw lastError;
+        }
+    }
+
+    _thriftCallFireAndForget(methodName, ...args) {
+        const connection = ThriftUtils.createTalkConnection(this.config);
+        const client = this.thriftLib.createHttpClient(this.TalkService, connection);
+
+        try {
+            client[methodName](...args, (err, response) => {
+                ThriftUtils.safeCloseConnection(connection, 'TALK');
+            });
+            
+            return { sent: true };
+            
+        } catch (error) {
+            ThriftUtils.safeCloseConnection(connection, 'TALK');
+            throw error;
         }
     }
 
@@ -79,7 +98,6 @@ export class TalkService {
         if (!Array.isArray(chatIds) || chatIds.length === 0) {
             throw new Error('chatIds must be a non-empty array');
         }
-
         const getChatsRequest = {
             chatMids: chatIds,
             withInvitees: options.withInvitees !== undefined ? options.withInvitees : true,
@@ -97,13 +115,32 @@ export class TalkService {
         return await this._thriftCall('getAllChatMids', request, 0);
     }
 
-    async deleteOtherFromChat(chatId,targetUserMids) {
+    async deleteOtherFromChat(chatId, targetUserMid) {
         const request = {
             reqSeq: 0,
-            chatMid: chatId,
-            targetUserMids: [targetUserMids]
+            chatMid: String(chatId),
+            targetUserMids: [String(targetUserMid)]
         };
-        return await this._thriftCall('deleteOtherFromChat', request, 0);
+        try {
+            this._thriftCallFireAndForget('deleteOtherFromChat', request, 0);
+            return { success: true, fireAndForget: true };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async cancelChatInvitation(chatId, targetUserMid) {
+        const request = {
+            reqSeq: 0,
+            chatMid: String(chatId),
+            targetUserMids: [String(targetUserMid)]
+        };
+        try {
+            this._thriftCallFireAndForget('cancelChatInvitation', request, 0);
+            return { success: true, fireAndForget: true };
+        } catch (error) {
+            throw error;
+        }
     }
 
     async acceptChatInvitation(chatId) {

@@ -97,8 +97,6 @@ export class Bot extends EventEmitter {
                     if (!fs.existsSync(qrDir)) {
                         fs.mkdirSync(qrDir, { recursive: true });
                     }
-                    
-                    // Find next available number
                     let counter = 1;
                     let filename;
                     do {
@@ -206,7 +204,17 @@ export class Bot extends EventEmitter {
     }
     async send(to, text, options = {}) {
         try {
-            return await this.client.sendMessage(to, text, options);
+            const message = {
+                to,
+                text,
+                from: this.client.selfMid,
+                id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                createdTime: Date.now(),
+                contentType: 0,
+                toType: 2,
+                ...options
+            };
+            return await this.client.talkService.sendMessage(message);
         } catch (error) {
             Logger.error('MESSAGE', 'Send message failed:', error.message);
             throw error;
@@ -215,7 +223,7 @@ export class Bot extends EventEmitter {
 
     async acceptInvitation(groupId) {
         try {
-            return await this.client.acceptChatInvitation(groupId);
+            return await this.client.talkService.acceptChatInvitation(groupId);
         } catch (error) {
             Logger.error('INVITE', 'Accept invitation failed:', error.message);
             throw error;
@@ -225,7 +233,7 @@ export class Bot extends EventEmitter {
     async deleteSelfFromChat(chatId) {
         try {
             Logger.info('BOT', `Leaving chat: ${chatId}`);
-            return await this.client.deleteSelfFromChat(chatId);
+            return await this.client.talkService.deleteSelfFromChat(chatId);
         } catch (error) {
             Logger.error('BOT', 'Delete self from chat failed:', error.message);
             throw error;
@@ -238,7 +246,7 @@ export class Bot extends EventEmitter {
         }
         
         try {
-            this.profile = await this.client.getProfile();
+            this.profile = await this.client.talkService.getProfile();
             return this.profile;
         } catch (error) {
             Logger.error('PROFILE', 'Get profile failed:', error.message);
@@ -248,7 +256,6 @@ export class Bot extends EventEmitter {
 
     async getChats(chatIds) {
         try {
-            // If single string is passed, convert to array
             const chatIdArray = Array.isArray(chatIds) ? chatIds : [chatIds];
             return await this.client.talkService.getChats(chatIdArray);
         } catch (error) {
@@ -268,9 +275,18 @@ export class Bot extends EventEmitter {
 
     async deleteOtherFromChat(chatId,targetUserMids) {
         try {
-            return await this.client.deleteOtherFromChat(chatId,targetUserMids);
+            return await this.client.talkService.deleteOtherFromChat(chatId,targetUserMids);
         } catch (error) {
             Logger.error('DELETE_OTHER_FROM_CHAT', 'Delete other from chat failed:', error.message);
+            throw error;
+        }
+    }
+
+    async cancelChatInvitation(chatId,targetUserMids) {
+        try {
+            return await this.client.talkService.cancelChatInvitation(chatId,targetUserMids);
+        } catch (error) {
+            Logger.error('CANCEL_CHAT_INVITATION', 'Cancel chat invitation failed:', error.message);
             throw error;
         }
     }
@@ -397,15 +413,28 @@ export class Bot extends EventEmitter {
 
 
     async _startMainThreadPolling() {
-        const polling = this.client.createPolling();
-        
-        for await (const op of polling.listenEvents({ pollingInterval: this.config.pollingInterval })) {
-            try {
-                await this._handleRawOperation(op);
-            } catch (error) {
-                Logger.error('POLLING', 'Operation error:', error.message);
-                this.emit('error', error);
+        try {
+            const polling = this.client.createPolling();
+            Logger.info('POLLING', 'Polling started successfully');
+            
+            for await (const op of polling.listenEvents({ pollingInterval: this.config.pollingInterval })) {
+                try {
+                    await this._handleRawOperation(op);
+                } catch (error) {
+                    Logger.error('POLLING', 'Operation error:', error.message);
+                    // Don't emit error for operation failures, just log them
+                    console.error('Operation processing failed:', error.stack);
+                }
             }
+        } catch (error) {
+            Logger.error('POLLING', 'Polling crashed:', error.message);
+            console.error('Polling error stack:', error.stack);
+            
+            // Restart polling after delay
+            setTimeout(() => {
+                Logger.warn('POLLING', 'Restarting polling after crash...');
+                this._startMainThreadPolling();
+            }, 5000);
         }
     }
 
@@ -413,7 +442,6 @@ export class Bot extends EventEmitter {
         if (op[3] === 25 || op[3] === 26) {
             const msg = op[20];
             if (!msg) {
-                Logger.debug('BOT', `OP.TYPE ${op[3]} without message data (probably system notification)`);
                 return;
             }
 
@@ -436,14 +464,6 @@ export class Bot extends EventEmitter {
             if (messageData.contentType === 0 && this.textHandler) {
                 if (messageData.text && typeof messageData.text === 'string' && messageData.text.trim().length > 0) {
                     await this.textHandler(messageData);
-                } else {
-                    Logger.debug('BOT', 'Skipping empty/invalid text message:', {
-                        from: messageData.from,
-                        to: messageData.to,
-                        contentType: messageData.contentType,
-                        textType: typeof messageData.text,
-                        textLength: messageData.text?.length || 0
-                    });
                 }
             }
 
@@ -473,11 +493,9 @@ export class Bot extends EventEmitter {
         }
         
         else if (op[3] === 126) {
-            Logger.debug('BOT', 'Chat invitation cancelled:', { groupId: op[10], userId: op[11] });
         }
         
         else if (op[3] === 130) {
-            Logger.debug('BOT', 'Chat invitation accepted:', { groupId: op[10], userId: op[11] });
         }
         
         else if (op[3] === 60) {
@@ -488,8 +506,6 @@ export class Bot extends EventEmitter {
                 createdTime: op[1],
                 raw: op
             };
-            
-            Logger.debug('BOT', 'User joined chat:', { groupId: joinData.groupId, userId: joinData.userId });
             
             if (this.joinHandler) {
                 await this.joinHandler(joinData);

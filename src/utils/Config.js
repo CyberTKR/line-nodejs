@@ -63,7 +63,7 @@ export class Config {
     
     static QR_CONFIG = {
         DEFAULT_TIMEOUT: 180000,
-        MAX_RETRIES: 3,
+        MAX_RETRIES: 1,
         BASE_DELAY: 1000,
         MAX_DELAY: 10000,
         CONNECTION_CLEANUP_DELAY: 1000

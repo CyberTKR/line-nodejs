@@ -627,17 +627,10 @@ export class E2EEDecryptor {
         const salt = chunks[0];
         const message = chunks[1];
         const _sign = chunks[2];
-        Logger.debug('V1 decryption signature:', { signLength: _sign?.length });
         const aesKey = E2EECrypto.generateSharedSecret(privK, pubK);
         const aes_key = E2EECrypto.getSHA256Sum(Buffer.from(aesKey), salt, 'Key');
         const aes_iv = E2EECrypto.xor(E2EECrypto.getSHA256Sum(Buffer.from(aesKey), salt, 'IV'));
         
-        Logger.debug('V1 decrypt keys:', {
-            aesKeyLength: aes_key.length,
-            ivLength: aes_iv.length,
-            messageLength: message.length,
-            sharedSecretLength: aesKey.length
-        });
         
         try {
             const decipher = crypto.createDecipheriv('aes-256-cbc', aes_key, aes_iv);
@@ -688,7 +681,6 @@ export class E2EEDecryptor {
                 return { text: textResult };
             }
         } catch (error) {
-            Logger.debug('V1 first attempt failed:', error.message);
             const decipher2 = crypto.createDecipheriv('aes-256-cbc', aes_key, aes_iv);
             const decrypted = Buffer.concat([
                 decipher2.update(message),
@@ -705,16 +697,9 @@ export class E2EEDecryptor {
 
     static async decryptE2EETextMessage(messageObj, selfMid, talkService = null) {
         if (messageObj.from === selfMid) {
-            Logger.warn('⚠️ Self-sent message detected - E2EE may fail due to different device keys');
-            Logger.debug('Self-sent message from phone app - attempting decryption with fallback');
             
             const botKeyData = E2EEStorage.getE2EEKey(selfMid);
             if (botKeyData) {
-                Logger.debug('Current bot key info:', {
-                    keyId: botKeyData.keyId,
-                    isFromPhone: messageObj.from === selfMid,
-                    hasEncryption: !!messageObj.chunks
-                });
             }
         }
         
@@ -758,10 +743,9 @@ export class E2EEDecryptor {
         let selfKeyData = E2EEStorage.getE2EEKey(selfMid);
         
         if (!selfKeyData) {
-            Logger.info('🔑 No bot E2EE keys found - attempting to generate for message decryption');
+            Logger.warn('⚠️ E2EE key missing - attempting to generate');
             
             try {
-                // Try to generate key on-demand
                 await E2EEStorage._generateE2EEKeyOnDemand(selfMid, talkService);
                 selfKeyData = E2EEStorage.getE2EEKey(selfMid);
                 
@@ -770,8 +754,7 @@ export class E2EEDecryptor {
                     return { success: false, content: messageObj.text || 'Encrypted message (no key)' };
                 }
                 
-                Logger.success('E2EE', 'Key generated successfully, retrying decryption...');
-                // Key generated, now retry the entire decryption process
+                Logger.success('E2EE', 'Key generated, retrying...');
                 return await E2EEDecryptor.decryptE2EETextMessage(messageObj, selfMid, talkService);
                 
             } catch (keyGenError) {
@@ -794,53 +777,36 @@ export class E2EEDecryptor {
         let otherPubK;
         
         if (isSelf) {
-            Logger.debug('🔍 Self-sent message from phone app - attempting decryption with fallback');
-            Logger.debug('🔍 Self-sent message: trying to use correct key by receiverKeyId:', receiverKeyId);
             
             let usableKey = E2EEStorage.getE2EEKey(receiverKeyId);
             if (!usableKey) {
-                Logger.debug('🔍 Receiver key not found, trying sender key:', senderKeyId);
                 usableKey = E2EEStorage.getE2EEKey(senderKeyId);
             }
             if (!usableKey) {
-                Logger.debug('🔍 Both keys not found, using bot current key:', selfMid);
                 usableKey = selfKeyData;
             }
             
             if (usableKey && usableKey.privKey) {
-                Logger.debug('🔍 Using key for self-sent message:', usableKey.keyId);
                 actualSelfKey = usableKey;
                 
-                Logger.debug('🔄 Trying multiple key combinations for self-sent message');
                 
                 let useReceiverPrivate = false;
                 let targetPublicKeyId;
                 
                 const receiverPrivateKey = E2EEStorage.getE2EEKey(receiverKeyId);
                 if (receiverPrivateKey && receiverPrivateKey.privKey) {
-                    Logger.debug('🔍 Found receiver private key, using receiver->sender pairing');
                     actualSelfKey = receiverPrivateKey;
                     targetPublicKeyId = senderKeyId;
                     useReceiverPrivate = true;
                 } else {
-                    Logger.debug('🔍 Using sender private key, need receiver public key');
                     targetPublicKeyId = receiverKeyId;
                 }
                 
-                Logger.debug('🔍 Self-sent key pairing:', {
-                    ourPrivateKey: usableKey.keyId,
-                    needPublicKey: targetPublicKeyId,
-                    senderKeyId: senderKeyId,
-                    receiverKeyId: receiverKeyId
-                });
                 
-                Logger.debug('🔍 Looking for public key:', targetPublicKeyId);
                 const otherDeviceKey = E2EEStorage.getE2EEPublicKey(targetPublicKeyId);
                 if (otherDeviceKey) {
-                    Logger.debug('🔍 Found other device public key in storage for keyId:', targetPublicKeyId, 'length:', otherDeviceKey.length);
                     otherPubK = otherDeviceKey;
                 } else {
-                    Logger.debug('🔍 Getting other device public key from API for keyId:', targetPublicKeyId);
                     
                     if (targetPublicKeyId === receiverKeyId) {
                         otherPubK = await E2EEStorage.getE2EELocalPublicKey(to, targetPublicKeyId, talkService);
@@ -850,11 +816,9 @@ export class E2EEDecryptor {
                 }
                 
                 if (!otherPubK) {
-                    Logger.debug('🔍 Using self public key as final fallback');
                     otherPubK = Buffer.from(actualSelfKey.pubKey, 'base64');
                 }
             } else {
-                Logger.warn('🔍 No usable key found for self-sent message');
                 actualSelfKey = selfKeyData;
                 otherPubK = Buffer.from(actualSelfKey.pubKey, 'base64');
             }
@@ -882,15 +846,12 @@ export class E2EEDecryptor {
                 2,
                 0
             );
-            Logger.success('V2 decrypt successful:', decrypted.text);
             return decrypted.text || '';
         } catch (v2Error) {
-            Logger.debug('V2 failed, trying V1:', v2Error.message);
             
             let decrypted = null;
             try {
                 decrypted = this.decryptE2EEMessageV1(chunks, selfPrivK, otherPubK);
-                Logger.debug('V1 decrypt success:', typeof decrypted, decrypted);
                 if (typeof decrypted === 'object' && decrypted.text) {
                     return decrypted.text;
                 } else if (typeof decrypted === 'string') {
@@ -898,14 +859,10 @@ export class E2EEDecryptor {
                 }
                 return decrypted || '';
             } catch (v1Error) {
-                Logger.debug('V1 decrypt failed:', v1Error.message);
                 
-                Logger.debug('Checking if self-sent message:', { from: messageObj.from, selfMid });
                 if (messageObj.from === selfMid) {
-                    Logger.warn('🔄 Self-sent message decryption failed - trying key swap approach');
                     
                     try {
-                        Logger.debug('🔄 Trying to derive phone private key for self-sent message');
                         
                         const phoneSharedSecret = E2EECrypto.generateSharedSecret(selfPrivK, otherPubK);
                         const phonePrivateKey = E2EECrypto.getSHA256Sum(Buffer.from(phoneSharedSecret), 'phone_key');
@@ -914,22 +871,18 @@ export class E2EEDecryptor {
                         const phoneDecrypted = this.decryptE2EEMessageV1(chunks, phonePrivateKey, botPubK);
                         
                         if (phoneDecrypted && phoneDecrypted.text) {
-                            Logger.success('✅ Self-sent message decrypted with derived phone key');
                             return phoneDecrypted.text;
                         }
                     } catch (phoneError) {
-                        Logger.debug('Phone key derivation approach failed:', phoneError.message);
                     }
                     
                     try {
                         const botPubK = Buffer.from(selfKeyData.pubKey, 'base64');
                         const botDecrypted = this.decryptE2EEMessageV1(chunks, selfPrivK, botPubK);
                         if (botDecrypted && botDecrypted.text) {
-                            Logger.success('✅ Self-sent message decrypted with bot key pair');
                             return botDecrypted.text;
                         }
                     } catch (swapError) {
-                        Logger.debug('Bot key pair approach failed:', swapError.message);
                     }
                     
                     if (otherPubK && actualSelfKey.keyId !== selfKeyData.keyId) {
@@ -938,20 +891,16 @@ export class E2EEDecryptor {
                             const reversePrivK = Buffer.from(selfKeyData.privKey, 'base64');
                             const reverseDecrypted = this.decryptE2EEMessageV1(chunks, reversePrivK, reversePubK);
                             if (reverseDecrypted && reverseDecrypted.text) {
-                                Logger.success('✅ Self-sent message decrypted with reverse keys');
                                 return reverseDecrypted.text;
                             }
                         } catch (reverseError) {
-                            Logger.debug('Reverse key approach failed:', reverseError.message);
                         }
                     }
                     
-                    Logger.warn('⚠️ All self-sent decryption attempts failed - device key mismatch');
-                    Logger.debug('Multi-device E2EE limitation - phone and bot keys don\'t match');
                     return '📱➡️🤖 Self-sent message (multi-device E2EE limitation)';
                 }
                 
-                Logger.error('Both V1 and V2 failed:', { v2: v2Error.message, v1: v1Error.message });
+                Logger.warn('⚠️ E2EE decryption failed');
                 return null;
             }
         }

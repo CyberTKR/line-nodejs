@@ -44,7 +44,7 @@ export class BaseClient extends EventEmitter {
         }
         
         this.config = config;
-        this.selfMid = null; // Will be set properly during initializeProfile()
+        this.selfMid = null;
         this.profile = null;
         
         this.server = createLineServer(config);
@@ -56,7 +56,7 @@ export class BaseClient extends EventEmitter {
     async initializeProfile() {
         try {
             Logger.startup('🔄 Initializing bot profile...');
-            this.profile = await this.getProfile();
+            this.profile = await this.talkService.getProfile();
             this.selfMid = this.profile.mid;
             return this.profile;
         } catch (error) {
@@ -73,36 +73,6 @@ export class BaseClient extends EventEmitter {
     set authToken(token) {
         this.config.authToken = token;
         this.server.setAuthToken(token);
-    }
-    async sendMessage(to, text, options = {}) {
-        const message = {
-            to,
-            text,
-            from: this.selfMid,
-            id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            createdTime: Date.now(),
-            contentType: 0,
-            toType: 2,
-            ...options
-        };
-
-        return this.talkService.sendMessage(message);
-    }
-    async getProfile(mid = null) {
-        return this.talkService.getProfile(mid);
-    }
-    async acceptChatInvitation(chatId) {
-        return this.talkService.acceptChatInvitation(chatId);
-    }
-    async deleteOtherFromChat(chatId,targetUserMids) {
-        return this.talkService.deleteOtherFromChat(chatId,targetUserMids);
-    }
-    async leaveChat(chatId) {
-        return this.talkService.leaveChat(chatId);
-    }
-
-    async deleteSelfFromChat(chatId) {
-        return this.talkService.deleteSelfFromChat(chatId);
     }
     async *qrLoginFlow() {
         try {
