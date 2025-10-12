@@ -7,9 +7,9 @@ const QRCode = require('qrcode');
 
 export class QrCodeGenerator {
     constructor(options = {}) {
-        this.boxSize = options.boxSize || 1;
-        this.border = options.border || 1;
-        this.small = options.small || true;
+        this.boxSize = options.boxSize ?? 1;
+        this.border = options.border ?? 1;
+        this.small = options.small ?? true;
     }
 
     async generateConsoleQR(url) {
