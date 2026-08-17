@@ -1,326 +1,198 @@
-# 🤖 line-nodejs
+# line-nodejs
 
- **Modern LINE bot framework for Node.js with clean API and working E2EE support**
+Modular unofficial LINE client for Node.js with QR and token login, persistent sessions, SYNC4, E2EE, extended Talk APIs and bot helpers.
 
-> ⚠️ **Beta Version**: This framework is in active development. It includes comprehensive Thrift protocol implementations for TalkService and other LINE services. While functional, please test thoroughly and report any issues.
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/status-alpha-orange.svg)](https://github.com/CyberTKR/line-nodejs/releases)
 
-
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-## 🚀 Quick Start
-
-### Installation
+## Installation
 
 ```bash
 git clone https://github.com/CyberTKR/line-nodejs.git
 cd line-nodejs
 npm install
-npm start
 ```
 
-### Basic Bot Example
+Node.js 18 or newer is required.
+
+## CLI
+
+```bash
+node ./bin/line-nodejs.js qr --app androidsecondary
+node ./bin/line-nodejs.js token "ACCESS_TOKEN"
+node ./bin/line-nodejs.js register
+node ./bin/line-nodejs.js profile
+node ./bin/line-nodejs.js chats
+node ./bin/line-nodejs.js send TARGET_CHATID "hello"
+node ./bin/line-nodejs.js listen
+node ./bin/line-nodejs.js public-bot
+node ./bin/line-nodejs.js self-bot
+node ./bin/line-nodejs.js services
+```
+
+QR and token logins are stored in `.line-nodejs/session.json` with mode `0600`. The session path can be changed with `--session` or `LINE_SESSION`.
+
+Supported profiles:
+
+- `androidsecondary`
+- `desktopwin`
+- `desktopmac`
+- `chrome` or `chromeos`
+- `ios`
+- `iosipad`
+
+Application identity is configurable:
+
+```bash
+export LINE_APP_PROFILE=ANDROIDSECONDARY
+export LINE_APPLICATION=$'ANDROIDSECONDARY\t26.11.0\tAndroid OS\t14'
+export LINE_USER_AGENT='Line/26.11.0'
+```
+
+## Phone registration
+
+```bash
+node ./bin/line-nodejs.js register
+```
+
+The interactive command asks for the phone number, two-letter region, display name, password and SMS PIN. If LINE requires human verification, the official `w.line.me` page opens in Chrome or Chromium and the same registration session continues after completion.
+
+The password must contain at least eight characters and at least three of these categories: uppercase, lowercase, number and symbol.
+
+Optional arguments:
+
+```bash
+node ./bin/line-nodejs.js register \
+  --phone 0812345678 \
+  --region TH \
+  --display-name "LINE User" \
+  --verification-method sms
+```
+
+Set `LINE_BROWSER_EXECUTABLE` when Chrome cannot be discovered automatically. Registration application identity can be changed with `LINE_REGISTER_APPLICATION` and `LINE_REGISTER_USER_AGENT`.
+
+## Client API
 
 ```javascript
-import { Bot } from './src/core/Bot.js';
+import { LineClient } from './src/index.js';
 
-const bot = new Bot({
-    device: "DESKTOPWIN",
-    enableE2EE: true,
-    logLevel: 'INFO'
+const client = new LineClient();
+const profile = await client.authenticate();
+
+console.log(`Logged in as ${profile.displayName}`);
+console.log(await client.getAllChatMids());
+
+await client.send('TARGET_CHATID', 'hello');
+await client.sendE2EE('TARGET_CHATID', 'encrypted hello');
+await client.listen((message) => {
+    console.log(message.type, message.from, message.text);
 });
+```
 
-// Handle text messages
-bot.onText(async (message) => {
-    const { text, to } = message;
-    
-    if (text === 'hi') {
-        await bot.send(to, 'Hello! 👋');
-    } else if (text === 'ping') {
-        await bot.send(to, 'Pong! 🏓');
+Token login:
+
+```javascript
+const client = new LineClient({ token: process.env.LINE_AUTH_TOKEN });
+await client.authenticate();
+```
+
+## Public bot
+
+`PublicBot` accepts both sent and received message operations (`op.type 25 + 26`). Commands are ordinary functions and can be changed in the example file.
+
+```javascript
+import { PublicBot } from './src/index.js';
+
+const bot = new PublicBot({
+    commands: {
+        hello: ({ bot, message }) => bot.send(message.target, 'hello'),
+        ping: ({ bot, message }) => bot.send(message.target, 'pong')
     }
 });
 
-// Handle group invitations
-bot.onInvite(async (invite) => {
-    await bot.acceptInvitation(invite.groupId);
-    await bot.send(invite.groupId, '👋 Hello everyone!');
-});
-
-// Start the bot
-await bot.start();
+bot.onReady((profile) => console.log(`${profile.displayName} PublicBot started`));
+bot.onError((error) => console.error(error.message));
+await bot.runForever();
 ```
 
-### Token-based Login
+## Self bot
+
+`SelfBot` accepts only messages sent by the logged-in account (`op.type 25`).
 
 ```javascript
-import { Bot } from './src/core/Bot.js';
+import { SelfBot } from './src/index.js';
 
-const bot = new Bot({
-    token: 'your-auth-token-here',
-    device: "DESKTOPWIN",
-    enableE2EE: true
-});
-
-await bot.start();
-```
-
-## 📋 API Reference
-
-### Bot Constructor
-
-```javascript
-const bot = new Bot({
-    token: 'string',        // Optional: LINE auth token for direct login
-    device: 'string',       // Device type (see supported devices below)
-    enableE2EE: true,       // Enable E2EE message decryption
-    language: 'en_EN',      // Language setting
-    storage: './data',      // Storage directory path
-    logLevel: 'INFO'        // Logging level (DEBUG, INFO, WARN, ERROR)
-});
-```
-
-### Core Methods
-
-```javascript
-// Authentication & Control
-await bot.start()                      // Start bot (shows QR if no token)
-await bot.stop()                       // Stop bot gracefully
-await bot.getProfile()                 // Get bot profile
-
-// Messaging
-await bot.send(to, message)            // Send text message to user or group
-
-// Group Management  
-await bot.acceptInvitation(groupId)    // Accept group invitation
-await bot.deleteSelfFromChat(chatId)   // Leave group/chat
-await bot.getChats(chatIds)           // Get chat information
-await bot.getAllChatMids()            // Get all chat IDs
-```
-
-### Event Handlers
-
-```javascript
-// Message Events
-bot.onText(handler)       // Handle text messages
-bot.onMessage(handler)    // Handle all message types
-bot.onRead(handler)       // Handle message read events
-
-// System Events
-bot.onReady(handler)      // Bot ready (after successful login)
-bot.onInvite(handler)     // Group invitations
-bot.onJoin(handler)       // User joined group
-bot.onLeave(handler)      // User left group
-bot.onError(handler)      // Error handling
-```
-
-### Message Object Structure
-
-```javascript
-{
-    type: 'receive',           // 'send' or 'receive'
-    from: 'u1234...',         // Sender ID
-    to: 'u5678...',           // Recipient ID (user or group)
-    id: '_...',            // Unique message ID
-    text: 'Hello',            // Message text content
-    contentType: 0,           // Content type (0=text, 1=image, etc.)
-    createdTime: 1234567890,  // Unix timestamp
-    encrypted: false,         // Whether message was E2EE encrypted
-    raw: {...}                // Raw operation data from LINE
-}
-```
-
-## 🏗️ Architecture
-
-- **Core Bot System** - Main Bot class with clean API
-- **Thrift Services** - Complete TalkService and protocol implementations
-- **E2EE Handler** - End-to-end encryption support
-- **Command System** - Built-in commands and extensible architecture
-- **Storage Manager** - Automatic data persistence
-
-## 🔐 E2EE (End-to-End Encryption) Support
-
-line-nodejs includes full E2EE support with automatic message decryption:
-
-```javascript
-bot.onText(async (message) => {
-    // E2EE messages are automatically decrypted
-    if (message.encrypted) {
-        console.log('🔐 This was an encrypted message!');
+const bot = new SelfBot({
+    commands: {
+        hello: ({ bot, message }) => bot.send(message.target, 'hello'),
+        ping: ({ bot, message }) => bot.send(message.target, 'pong')
     }
-    
-    // message.text contains the decrypted content
-    console.log('Message:', message.text);
 });
+
+await bot.runForever();
 ```
 
-### E2EE Features
+## Talk APIs
 
-- ✅ **Automatic Decryption** - Encrypted messages are transparently decrypted
-- ✅ **V1 & V2 Support** - Supports both E2EE protocol versions  
-- ✅ **Key Management** - Automatic key generation, storage and retrieval
-- ✅ **Error Recovery** - Graceful fallback for decryption failures
-- ✅ **Performance Optimized** - Efficient encryption/decryption processing
+The high-level client includes:
 
-## 📱 Supported Devices
+- `getProfile`, `getAllChatMids`, `getChats`
+- `getContact`, `getContacts`, `addFriend`
+- `send`, `unsend`, `react`, `markAsRead`
+- `getPreviousMessages`, `getRecentMessages`
+- `acceptInvitation`, `acceptInvitationByTicket`, `rejectInvitation`
+- `inviteIntoChat`, `cancelChatInvitation`, `deleteOtherFromChat`
+- `reissueChatTicket`, `deleteSelfFromChat`
 
-line-nodejs supports multiple LINE client types:
-
-- **DESKTOPWIN** - Windows desktop client (recommended)
-- **IOS** - iOS mobile client
-- **IOSIPAD** - iPad client  
-- **CHROMEOS** - Chrome OS client
+The complete generated Talk client remains available through:
 
 ```javascript
-const bot = new Bot({
-    device: "DESKTOPWIN"  // Most stable option
-});
+const talk = client.service('talk');
+await talk.generateUserTicket();
+await talk.getSettings();
+await talk.getBlockedContactIds();
 ```
 
-## 🛠️ Built-in Commands
-
-The framework includes a comprehensive command system:
-
-| Command | Description | Usage |
-|---------|-------------|-------|
-| `hi` | Greet the bot | Send "hi" |
-| `time` | Show current time | Send "time" |
-| `gr` | Show chat information | Send "gr" |
-| `tagall` | Tag all group members | Send "tagall" |
-| `stats` | Show bot statistics | Send "stats" |
-| `help` | Show available commands | Send "help" |
-| `chats` | List all chat IDs | Send "chats" |
-| `bye` | Leave current group | Send "bye" |
-| `ping` | Ping/pong test | Send "ping" |
-| `version` | Show bot version | Send "version" |
-| `joke` | Tell a random joke | Send "joke" |
-
-## 💾 Storage System
-
-Automatic data persistence with simple API:
+## Additional services
 
 ```javascript
-// Data is automatically saved to ./data/ directory
-// Storage is handled per-bot instance
+const call = client.service('call');
+const liff = client.service('liff');
+const square = client.service('square');
+const relation = client.service('relation');
+const obs = client.service('obs');
 
-// Bot data is automatically managed
-// No manual storage configuration needed
+await call.getGroupCall('TARGET_CHATID');
+await liff.issueView('LIFF_ID', { chatMid: 'TARGET_CHATID' });
+await square.getJoinedSquares();
+const media = await obs.downloadObject('OBJECT_ID');
 ```
 
-## 🔧 Advanced Usage
+Available services: `talk`, `sync`, `qr`, `call`, `liff`, `square`, `relation`, `obs`, and `e2ee`.
 
-### Error Handling
-```javascript
-bot.onError((error) => {
-    console.error('Bot error:', error.message);
-});
+## Listener behavior
+
+The listener uses `/SYNC4` and starts from the latest operation revision by default. This prevents commands from being executed again for old messages after a restart. Set `replayHistory: true` only when older operations are intentionally required.
+
+## Development
+
+```bash
+npm run check
+npm audit
 ```
 
-### QR Code Login
-```javascript
-const bot = new Bot({ device: "DESKTOPWIN", enableE2EE: true });
-bot.onReady((profile) => {
-    console.log(`✅ Logged in as: ${profile.displayName}`);
-});
-await bot.start(); // Shows QR code
-```
+The check command validates JavaScript syntax and runs the Node.js test suite.
 
-## 🐛 Troubleshooting
+## Security
 
-### ⚠️ Important Notice
+Do not commit access tokens, refresh tokens, certificates, E2EE keys or session files. See [SECURITY.md](SECURITY.md) for reporting instructions.
 
-This framework is in **beta stage** and may have undiscovered issues. Please:
+## Support
 
-- Test thoroughly before using in production
-- Report bugs and issues on GitHub
-- Keep backups of your data
-- Use at your own risk
+[![Email](https://img.shields.io/badge/Email-dev%40cybertkr.com-EA4335?logo=gmail&logoColor=white)](mailto:dev@cybertkr.com)
+[![LINE](https://img.shields.io/badge/LINE-cybertkr-00C300?logo=line&logoColor=white)](https://line.me/ti/p/~cybertkr)
 
-### Common Issues
+## Disclaimer
 
-**QR Code not appearing**
-- Make sure you don't have a token set
-- Check that your terminal supports image display
-- Try running with `logLevel: 'DEBUG'`
-
-**Messages not being received**
-- Verify bot is properly started with `bot.onReady()`
-- Check if E2EE is enabled for encrypted chats
-- Ensure proper event handlers are registered
-
-**E2EE decryption failing**
-- Some bot accounts don't support E2EE
-- This is normal behavior - bot will handle regular messages
-- Enable debug logging to see encryption status
-
-**Connection issues**
-- Check your internet connection
-- Verify LINE servers are accessible
-- Try different device types if issues persist
-
-### Debug Mode
-
-Enable detailed logging for troubleshooting:
-
-```javascript
-const bot = new Bot({
-    logLevel: 'DEBUG'  // Show all debug information
-});
-```
-
-## 📈 Performance
-
-- **Memory efficient** - Optimized for long-running bots
-- **Fast startup** - Quick initialization and connection
-- **Reliable polling** - Robust message polling with auto-recovery
-- **Low latency** - Fast message processing and response times
-
-## 🔄 Migration from Other Solutions
-
-### From Custom LINE Implementations
-
-line-nodejs provides a simpler, more intuitive API while maintaining full functionality:
-
-```javascript
-// Traditional LINE implementation
-// Complex Thrift setup, manual E2EE handling, raw protocol management
-
-// line-nodejs style  
-const bot = new Bot({ token: '...' });
-// Clean API with automatic E2EE, built-in commands, and modern async/await
-```
-
-### From Other Bot Frameworks
-
-Easy migration with familiar event-driven architecture and clean async/await syntax.
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📚 References & Inspiration
-
-This project was inspired by and references the following excellent LINE bot frameworks:
-
-- **[evex-dev/linejs](https://github.com/evex-dev/linejs)** 
-- **[DeachSword/CHRLINE-Thrift](https://github.com/DeachSword/CHRLINE-Thrift/)** 
-- **[WEDeach/CHRLINE-Patch](https://github.com/WEDeach/CHRLINE-Patch)** 
-
-Special thanks to the developers of these projects for their pioneering work in LINE bot development!
-
-## 📞 Support
-
-If you encounter any issues or have questions:
-
-1. Check the [troubleshooting section](#-troubleshooting)
-2. Enable debug mode for detailed logs
-3. Open an issue on GitHub with error details
-4. 📱 **Contact via LINE**: <img src=".images/line.png" alt="LINE Logo" width="30" height="30"> [Add me on LINE](https://line.me/ti/p/KvDfdDCgAW)
-
----
-
-**line-nodejs** - Modern LINE bot framework with clean API and working E2EE support 🚀
+This project is not affiliated with or endorsed by LINE Corporation. It uses unofficial interfaces that can change without notice. Use it only with accounts and chats you are authorized to access.

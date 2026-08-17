@@ -1,7 +1,13 @@
 export class Config {
-    static DEFAULT_ENDPOINT = 'legy.line-apps.com';
+    static DEFAULT_ENDPOINT = process.env.LINE_HOST || 'legy.line-apps.com';
     
     static DEVICE_CONFIGS = {
+        ANDROIDSECONDARY: {
+            userAgent: 'Line/26.11.0',
+            systemType: 'ANDROIDSECONDARY\t26.11.0\tAndroid OS\t14',
+            qrSystemName: 'ANDROIDSECONDARY',
+            qrModelName: 'Android'
+        },
         IOS: {
             userAgent: 'Line/13.3.0 iPhone OS/15.0',
             systemType: 'IOS\t13.3.0\tiOS\t17.0.1',
@@ -27,6 +33,12 @@ export class Config {
             qrModelName: 'MAC'
         },
         CHROMEOS: {
+            userAgent: 'Line/8.7.0',
+            systemType: 'CHROMEOS\t8.7.0\tChrome_OS\t1.0.0',
+            qrSystemName: 'CHROMEOS',
+            qrModelName: 'Chrome_OS'
+        },
+        CHROME: {
             userAgent: 'Line/8.7.0',
             systemType: 'CHROMEOS\t8.7.0\tChrome_OS\t1.0.0',
             qrSystemName: 'CHROMEOS',
@@ -89,12 +101,14 @@ export class Config {
     
     static createClientConfig(options = {}) {
         const {
-            authToken = null,
-            device = 'IOS',
+            authToken = process.env.LINE_AUTH_TOKEN || null,
+            device = process.env.LINE_APP_PROFILE || 'ANDROIDSECONDARY',
             endpoint = this.DEFAULT_ENDPOINT,
             pollingInterval = this.POLLING.INTERVAL,
             enableE2EE = true,
-            language = 'en_EN'
+            language = process.env.LINE_LANGUAGE || 'en_EN',
+            application = process.env.LINE_APPLICATION || null,
+            userAgent = process.env.LINE_USER_AGENT || null
         } = options;
         
         const deviceConfig = this.DEVICE_CONFIGS[device];
@@ -106,8 +120,8 @@ export class Config {
             authToken,
             device,
             endpoint,
-            userAgent: deviceConfig.userAgent,
-            systemType: deviceConfig.systemType,
+            userAgent: userAgent || deviceConfig.userAgent,
+            systemType: application || deviceConfig.systemType,
             qrSystemName: deviceConfig.qrSystemName,
             qrModelName: deviceConfig.qrModelName,
             pollingInterval,
@@ -118,11 +132,6 @@ export class Config {
         };
     }
     
-    /**
-     * Get QR device mapping for specific device
-     * @param {string} device - Device type
-     * @returns {Object} QR device configuration
-     */
     static getQrDeviceConfig(device) {
         const deviceConfig = this.DEVICE_CONFIGS[device];
         if (!deviceConfig) {

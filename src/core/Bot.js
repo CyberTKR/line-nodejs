@@ -4,8 +4,9 @@ import { createRequire } from 'module';
 import Logger from '../utils/Logger.js';
 import Config from '../utils/Config.js';
 import StorageManager from '../storage/StorageManager.js';
-import { BaseClient } from '../services/client.js';
-import { E2EEHandler, E2EEStorage } from '../services/e2ee.js';
+import SessionStore from '../storage/SessionStore.js';
+import { BaseClient } from '../services/core/BaseClient.js';
+import { E2EEHandler, E2EEStorage } from '../services/e2ee/index.js';
 import QrCodeGenerator from '../utils/QrCodeGenerator.js';
 
 const require = createRequire(import.meta.url);
@@ -24,18 +25,32 @@ export class Bot extends EventEmitter {
             device = null,
             storage = null,
             enableE2EE = true,
-            language = 'en_EN'
+            language = 'en_EN',
+            session = process.env.LINE_SESSION || '.line-nodejs/session.json',
+            autoListen = true,
+            replayHistory = false,
+            logLevel = process.env.LOG_LEVEL || 'INFO',
+            application = null,
+            userAgent = null,
+            endpoint = undefined
         } = options;
-        this.hasToken = !!token;
+        this.sessionStore = new SessionStore(session);
+        const savedSession = this.sessionStore.load();
+        const authToken = token || savedSession.authToken || null;
+        this.hasToken = !!authToken;
         this.config = Config.createClientConfig({
-            authToken: token,
-            device,
+            authToken,
+            device: device || savedSession.device || undefined,
             enableE2EE,
-            language
+            language,
+            application,
+            userAgent,
+            endpoint
         });
 
         this.storage = new StorageManager(storage);
         this.client = new BaseClient(this.config, this.storage);
+        this.client.qrService.sessionStore = this.sessionStore;
         this.profile = null;
         this.started = false;
         this.enableE2EE = enableE2EE;
@@ -43,6 +58,11 @@ export class Bot extends EventEmitter {
         this.botData = {};
         this.processedMessages = new Set();
         this.qrGenerator = new QrCodeGenerator();
+        this.autoListen = autoListen;
+        this.replayHistory = replayHistory;
+        this.pollAbortController = null;
+        this.pollingTask = null;
+        Logger.setLevel(logLevel);
     }
 
     async start() {
@@ -62,6 +82,11 @@ export class Bot extends EventEmitter {
             Logger.startup('Starting bot...');
             this.profile = await this.client.initializeProfile();
             Logger.success('STARTUP', `Bot profile loaded: ${this.profile.displayName} (${this.profile.mid})`);
+            this.sessionStore.save({
+                authToken: this.config.authToken,
+                device: this.config.device,
+                mid: this.profile.mid
+            });
             await this._initializeBotSystems();
             this.emit('ready', this.profile);
             return this.profile;
@@ -79,7 +104,7 @@ export class Bot extends EventEmitter {
         }
 
         try {
-            Logger.startup('🔐 Starting bot with QR login...');
+            Logger.startup('Starting client with QR login...');
 
             const qrFlow = this.client.qrLoginFlow();
             let loginResult = null;
@@ -130,7 +155,11 @@ export class Bot extends EventEmitter {
             this.client.config.authToken = authToken;
             this.client.server.headers['x-line-access'] = authToken;
 
-            Logger.success('QR_LOGIN', `Auth token obtained: ${authToken.substring(0, 20)}...`);
+            this.sessionStore.save({
+                authToken,
+                certificate: loginResult.certificate || null,
+                device: this.config.device
+            });
 
             this.profile = await this.client.initializeProfile();
             Logger.success('QR_STARTUP', `Bot profile loaded: ${this.profile.displayName} (${this.profile.mid})`);
@@ -149,34 +178,24 @@ export class Bot extends EventEmitter {
     async _initializeBotSystems() {
         this.storage.initialize(this.profile.mid, this.profile);
         
-        const isQrLogin = this.client.isQrLogin || false;
-        
-        if (isQrLogin) {
-            const cleared = this.storage.clearData();
-            if (cleared) {
-                Logger.info('BOT_INIT', 'QR login detected - cleared storage for fresh start');
-            }
-        } else if (this.config.authToken) {
-            Logger.info('BOT_INIT', 'Token login - preserving existing storage');
-        } else {
-            Logger.info('BOT_INIT', 'No authentication method detected');
-        }
-        
         this.botData = this.storage.loadData() || {};
         if (this.enableE2EE) {
             Logger.info('E2EE enabled - setting up encryption handler...');
             E2EEStorage.initializeWithStorageManager(this.storage);
             this.e2eeHandler = new E2EEHandler(this.client);
+            if (this.pendingE2EEKey) {
+                this.e2eeHandler.saveOwnKey(this.profile.mid, this.pendingE2EEKey);
+                this.pendingE2EEKey = null;
+            }
             await this._setupE2EE();
         } else {
             this.e2eeHandler = null;
         }
 
-        this._setupEventHandlers();
-        this._startPolling();
-
         this.started = true;
         this.startTime = Date.now();
+        this._setupEventHandlers();
+        if (this.autoListen) this.startListening();
         Logger.success('STARTUP', 'Bot started successfully!');
     }
 
@@ -191,6 +210,8 @@ export class Bot extends EventEmitter {
 
             this.started = false;
             this.startTime = null;
+            this.stopListening();
+            this.client.server.close();
             Logger.success('STARTUP', 'Bot stopped successfully');
 
             this.emit('stopped');
@@ -209,7 +230,7 @@ export class Bot extends EventEmitter {
                 id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 createdTime: Date.now(),
                 contentType: 0,
-                toType: 2,
+                toType: this._midType(to),
                 ...options
             };
             return await this.client.talkService.sendMessage(message);
@@ -217,6 +238,12 @@ export class Bot extends EventEmitter {
             Logger.error('MESSAGE', 'Send message failed:', error.message);
             throw error;
         }
+    }
+
+    async sendE2EE(to, text) {
+        if (!this.e2eeHandler) throw new Error('E2EE is disabled');
+        const message = await this.e2eeHandler.encryptText(to, text);
+        return this.client.talkService.sendMessage(message);
     }
 
     async acceptInvitation(groupId) {
@@ -289,6 +316,70 @@ export class Bot extends EventEmitter {
         }
     }
 
+    async inviteIntoChat(chatId, targetUserMids) {
+        return this.client.talkService.inviteIntoChat(chatId, targetUserMids);
+    }
+
+    async acceptInvitationByTicket(chatId, ticketId) {
+        return this.client.talkService.acceptChatInvitationByTicket(chatId, ticketId);
+    }
+
+    async rejectInvitation(chatId) {
+        return this.client.talkService.rejectChatInvitation(chatId);
+    }
+
+    async reissueChatTicket(chatId) {
+        return this.client.talkService.reissueChatTicket(chatId);
+    }
+
+    async getContact(mid) {
+        return this.client.talkService.getContact(mid);
+    }
+
+    async getContacts(mids) {
+        return this.client.talkService.getContacts(mids);
+    }
+
+    async addFriend(mid) {
+        return this.client.talkService.findAndAddContactsByMid(mid);
+    }
+
+    async getPreviousMessages(request, syncReason = 0) {
+        return this.client.talkService.getPreviousMessages(request, syncReason);
+    }
+
+    async getRecentMessages(messageBoxId, count = 50) {
+        return this.client.talkService.getRecentMessages(messageBoxId, count);
+    }
+
+    async unsend(messageId) {
+        return this.client.talkService.unsendMessage(messageId);
+    }
+
+    async react(messageId, reactionType = 2) {
+        return this.client.talkService.react(messageId, reactionType);
+    }
+
+    async markAsRead(chatId, messageId) {
+        return this.client.talkService.sendChatChecked(chatId, messageId);
+    }
+
+    service(name = 'talk') {
+        const services = {
+            talk: this.client.talkService,
+            sync: this.client.syncService,
+            qr: this.client.qrService,
+            call: this.client.callService,
+            liff: this.client.liffService,
+            square: this.client.squareService,
+            relation: this.client.relationService,
+            obs: this.client.obsService,
+            e2ee: this.e2eeHandler
+        };
+        if (!services[name]) throw new Error(`Unknown service: ${name}`);
+        return services[name];
+    }
+
 
 
 
@@ -330,7 +421,6 @@ export class Bot extends EventEmitter {
 
     onError(handler) {
         this.errorHandler = handler;
-        this.on('error', handler);
     }
 
 
@@ -405,17 +495,38 @@ export class Bot extends EventEmitter {
             }
         });
     }
-    async _startPolling() {
-        await this._startMainThreadPolling();
+    startListening() {
+        if (this.pollingTask) return this.pollingTask;
+        const controller = new AbortController();
+        this.pollAbortController = controller;
+        this.pollingTask = this._startMainThreadPolling(controller.signal)
+            .catch((error) => {
+                if (!controller.signal.aborted) this.emit('error', error);
+            })
+            .finally(() => {
+                this.pollingTask = null;
+            });
+        return this.pollingTask;
     }
 
+    stopListening() {
+        this.pollAbortController?.abort();
+        this.pollAbortController = null;
+    }
 
-    async _startMainThreadPolling() {
+    async _startMainThreadPolling(signal) {
         try {
             const polling = this.client.createPolling();
+            if (!this.replayHistory) {
+                const revision = await this.client.talkService.getLastOpRevision();
+                const value = typeof revision === 'object' ? revision?.revision : revision;
+                if (Number.isFinite(Number(value))) {
+                    this.client.syncService.setSyncState({ revision: Number(value) });
+                }
+            }
             Logger.info('POLLING', 'Polling started successfully');
             
-            for await (const op of polling.listenEvents({ pollingInterval: this.config.pollingInterval })) {
+            for await (const op of polling.listenEvents({ signal, pollingInterval: 0 })) {
                 try {
                     await this._handleRawOperation(op);
                 } catch (error) {
@@ -427,10 +538,7 @@ export class Bot extends EventEmitter {
             Logger.error('POLLING', 'Polling crashed:', error.message);
             console.error('Polling error stack:', error.stack);
             
-            setTimeout(() => {
-                Logger.warn('POLLING', 'Restarting polling after crash...');
-                this._startMainThreadPolling();
-            }, 5000);
+            if (!signal?.aborted) throw error;
         }
     }
 
@@ -446,12 +554,18 @@ export class Bot extends EventEmitter {
                 raw: op,
                 from: msg[1],
                 to: msg[2],
+                toType: msg[3] ?? this._midType(msg[2]),
                 id: msg[4],
                 text: msg[10],
                 contentType: msg[15],
-                createdTime: op[1],
-                encrypted: false
+                contentMetadata: msg[18] || {},
+                chunks: msg[20] || [],
+                createdTime: msg[5] || op[1],
+                encrypted: Array.isArray(msg[20]) && msg[20].length >= 5
             };
+            messageData.target = messageData.type === 'receive' && messageData.toType === 0
+                ? messageData.from
+                : messageData.to;
 
             if (this.messageHandler) {
                 await this.messageHandler(messageData);
@@ -507,6 +621,12 @@ export class Bot extends EventEmitter {
                 await this.joinHandler(joinData);
             }
         }
+    }
+
+    _midType(mid) {
+        if (String(mid).startsWith('u')) return 0;
+        if (String(mid).startsWith('r')) return 1;
+        return 2;
     }
 }
 

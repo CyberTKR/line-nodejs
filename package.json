@@ -1,13 +1,33 @@
 {
   "name": "line-nodejs",
-  "version": "1.0.0",
-  "description": "Modern LINE bot framework for Node.js with clean API and working E2EE support",
-  "main": "src/core/Bot.js",
+  "version": "0.1.0-alpha.1",
+  "description": "Modular unofficial LINE client for Node.js with QR login, SYNC4, E2EE and bot helpers",
+  "main": "src/index.js",
   "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./bot": "./src/core/Bot.js",
+    "./config": "./src/utils/Config.js",
+    "./services": "./src/services/index.js"
+  },
+  "bin": {
+    "line-nodejs": "./bin/line-nodejs.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "examples",
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md",
+    "SECURITY.md"
+  ],
   "scripts": {
-    "start": "node examples/simple-bot.js",
-    "dev": "node examples/simple-bot.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node ./bin/line-nodejs.js",
+    "public-bot": "node examples/public-bot.js",
+    "self-bot": "node examples/self-bot.js",
+    "test": "node --test",
+    "check": "node scripts/check.js && node --test"
   },
   "keywords": [
     "line",
@@ -18,13 +38,19 @@
     "thrift",
     "nodejs"
   ],
-  "author": "CyberTKR",
+  "author": "CyberTKR <dev@cybertkr.com>",
   "license": "MIT",
   "dependencies": {
+    "@evex/linejs": "npm:@jsr/evex__linejs@^3.2.1",
     "curve25519-js": "^0.0.4",
     "qrcode": "^1.5.3",
     "qrcode-terminal": "^0.12.0",
-    "thrift": "^0.20.0"
+    "thrift": "^0.24.0",
+    "ws": "^8.21.3",
+    "xxhash-wasm": "^1.1.0"
+  },
+  "overrides": {
+    "thrift": "^0.24.0"
   },
   "engines": {
     "node": ">=18.0.0"

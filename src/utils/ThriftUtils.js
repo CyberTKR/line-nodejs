@@ -1,17 +1,13 @@
 import { createRequire } from 'module';
 import NetworkUtils from './NetworkUtils.js';
-import { Logger } from '../services/utils.js';
+import { Logger } from '../services/core/utils.js';
 
 const require = createRequire(import.meta.url);
-const { Client: SecondaryQrCodeLoginServiceClient } = require('../services/modules/qr_thrift/SecondaryQrCodeLoginService.cjs');
-const ttypes = require('../services/modules/qr_thrift/types.cjs');
+const { Client: SecondaryQrCodeLoginServiceClient } = require('../services/auth/generated/SecondaryQrCodeLoginService.cjs');
+const ttypes = require('../services/auth/generated/types.cjs');
 const thrift = require('thrift');
 
 export class ThriftUtils {
-    /**
-     * Initialize QR Thrift dependencies
-     * @returns {Object} Thrift dependencies
-     */
     static async initializeQrThrift() {
         try {
             return { SecondaryQrCodeLoginServiceClient, ttypes, thrift };
@@ -21,14 +17,6 @@ export class ThriftUtils {
         }
     }
 
-    /**
-     * Create a QR thrift connection
-     * @param {string} host - Target host
-     * @param {string} path - Request path
-     * @param {Object} config - Configuration object
-     * @param {string} authSessionId - Optional auth session ID
-     * @returns {Object} Thrift connection
-     */
     static async createQrConnection(host, path, config, authSessionId = null) {
         const { thrift } = await this.initializeQrThrift();
         
@@ -41,12 +29,6 @@ export class ThriftUtils {
         });
     }
 
-    /**
-     * Create a Talk service connection
-     * @param {Object} config - Configuration object
-     * @param {number} timeout - Optional timeout
-     * @returns {Object} Thrift connection
-     */
     static createTalkConnection(config, timeout = null) {
         
         const connectionOptions = {
@@ -64,13 +46,6 @@ export class ThriftUtils {
         return thrift.createHttpConnection(config.endpoint, 443, connectionOptions);
     }
 
-    /**
-     * Execute a thrift call with proper error handling and retries
-     * @param {Function} clientMethod - The client method to call
-     * @param {Array} args - Arguments for the method
-     * @param {Object} options - Options including retries and delays
-     * @returns {Promise} Result of the thrift call
-     */
     static async executeThriftCall(clientMethod, args = [], options = {}) {
         const { 
             maxRetries = 1, 
@@ -119,11 +94,6 @@ export class ThriftUtils {
         throw lastError;
     }
 
-    /**
-     * Check if an error is retryable
-     * @param {Error} error - The error to check
-     * @returns {boolean} Whether the error is retryable
-     */
     static isRetryableError(error) {
         const retryablePatterns = [
             'HTTP 410',
@@ -140,35 +110,18 @@ export class ThriftUtils {
         );
     }
 
-    /**
-     * Calculate retry delay with exponential backoff
-     * @param {number} attempt - Current attempt number
-     * @param {number} baseDelay - Base delay in milliseconds
-     * @param {number} maxDelay - Maximum delay in milliseconds
-     * @returns {number} Calculated delay
-     */
     static calculateRetryDelay(attempt, baseDelay, maxDelay) {
         const delay = Math.min(
             baseDelay * Math.pow(2, attempt - 1),
             maxDelay
         );
-        return delay + Math.random() * 1000; // Add jitter
+        return delay + Math.random() * 1000;
     }
 
-    /**
-     * Sleep for specified milliseconds
-     * @param {number} ms - Milliseconds to sleep
-     * @returns {Promise} Promise that resolves after the delay
-     */
     static async sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    /**
-     * Safely close a thrift connection
-     * @param {Object} connection - Thrift connection to close
-     * @param {string} context - Context for logging
-     */
     static safeCloseConnection(connection, context = 'CONNECTION') {
         try {
             if (connection && typeof connection.end === 'function') {

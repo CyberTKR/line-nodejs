@@ -1,8 +1,3 @@
-/**
- * Modular LineBot - Logger
- * Enhanced logging for modular structure
- */
-
 const colors = {
     reset: '\x1b[0m',
     bright: '\x1b[1m',
@@ -16,10 +11,10 @@ const colors = {
 };
 
 class Logger {
-    static logLevel = process.env.LOG_LEVEL || 'DEBUG'; // DEBUG, INFO, WARN, ERROR - Debug enabled
+    static logLevel = process.env.LOG_LEVEL || 'DEBUG';
     
     static formatTimestamp() {
-        return new Date().toISOString().substring(11, 23); // HH:mm:ss.SSS
+        return new Date().toISOString().substring(11, 23);
     }
     
     static formatMessage(level, category, message, ...args) {
@@ -80,8 +75,8 @@ class Logger {
     
     static shouldLog(level) {
         const levels = { DEBUG: 0, INFO: 1, SUCCESS: 1, WARN: 2, ERROR: 3, STARTUP: 1, STORAGE: 1, POLLING: 1, MESSAGE: 1, E2EE: 1 };
-        const currentLevel = levels[this.logLevel] || 1;
-        const messageLevel = levels[level] || 1;
+        const currentLevel = levels[this.logLevel] ?? 1;
+        const messageLevel = levels[level] ?? 1;
         return messageLevel >= currentLevel;
     }
     

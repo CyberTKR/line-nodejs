@@ -19,15 +19,13 @@ export class QrCodeGenerator {
             });
             
             Logger.info('QR_GEN', '');
-            Logger.info('QR_GEN', `🔗 QR URL: ${url.substring(0, 50)}...`);
             
             return true;
             
         } catch (error) {
             Logger.error('QR_GEN', 'Failed to generate console QR:', error.message);
             
-            Logger.warn('QR_GEN', '⚠️  QR code display failed, use this URL:');
-            Logger.info('QR_GEN', url);
+            Logger.warn('QR_GEN', 'QR code display failed; use the generated image file');
             return false;
         }
     }
@@ -96,10 +94,6 @@ export class QrCodeGenerator {
         
         Logger.info('QR_PROGRESS', `[${timestamp}] ${emoji} ${message}`);
         
-        if (data && step === 'qr_code') {
-            Logger.info('QR_PROGRESS', `📋 Callback URL: ${data.callbackUrl}`);
-        }
-        
         if (data && step === 'pin_created') {
             Logger.info('QR_PROGRESS', `🔢 PIN CODE: ${data.pinCode}`);
             Logger.info('QR_PROGRESS', '💡 Enter this PIN code in your LINE app now...');
@@ -109,10 +103,6 @@ export class QrCodeGenerator {
     static showLoginResult(loginResult) {
         Logger.success('QR_LOGIN', '\n🎉 LOGIN SUCCESSFUL!');
         Logger.info('QR_LOGIN', '━'.repeat(50));
-        
-        if (loginResult.certificate) {
-            Logger.info('QR_LOGIN', `🔒 Certificate: ${loginResult.certificate.substring(0, 30)}...`);
-        }
         
         if (loginResult.tokenV3IssueResult) {
             Logger.info('QR_LOGIN', `🎫 Token V3 Result: Available`);
