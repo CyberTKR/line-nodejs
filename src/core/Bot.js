@@ -57,6 +57,7 @@ export class Bot extends EventEmitter {
         this.e2eeHandler = null;
         this.botData = {};
         this.processedMessages = new Set();
+        this.e2eeRequiredTargets = new Set();
         this.qrGenerator = new QrCodeGenerator();
         this.autoListen = autoListen;
         this.replayHistory = replayHistory;
@@ -222,6 +223,14 @@ export class Bot extends EventEmitter {
         }
     }
     async send(to, text, options = {}) {
+        const messageOptions = { ...options };
+        const forceE2EE = messageOptions.e2ee === true;
+        delete messageOptions.e2ee;
+
+        if (this.enableE2EE && this.e2eeHandler && (forceE2EE || this.e2eeRequiredTargets.has(to))) {
+            return this.sendE2EE(to, text, messageOptions);
+        }
+
         try {
             const message = {
                 to,
@@ -231,18 +240,32 @@ export class Bot extends EventEmitter {
                 createdTime: Date.now(),
                 contentType: 0,
                 toType: this._midType(to),
-                ...options
+                ...messageOptions
             };
             return await this.client.talkService.sendMessage(message);
         } catch (error) {
+            if (this.enableE2EE && this.e2eeHandler && Number(error?.code) === 82 && !messageOptions.chunks) {
+                this.e2eeRequiredTargets.add(to);
+                return this.sendE2EE(to, text, messageOptions);
+            }
             Logger.error('MESSAGE', 'Send message failed:', error.message);
             throw error;
         }
     }
 
-    async sendE2EE(to, text) {
+    async sendE2EE(to, text, options = {}) {
         if (!this.e2eeHandler) throw new Error('E2EE is disabled');
-        const message = await this.e2eeHandler.encryptText(to, text);
+        const encrypted = await this.e2eeHandler.encryptText(to, text);
+        const message = {
+            ...options,
+            ...encrypted,
+            toType: options.toType ?? this._midType(to),
+            contentMetadata: {
+                ...(options.contentMetadata || {}),
+                ...(encrypted.contentMetadata || {})
+            }
+        };
+        this.e2eeRequiredTargets.add(to);
         return this.client.talkService.sendMessage(message);
     }
 
@@ -566,6 +589,10 @@ export class Bot extends EventEmitter {
             messageData.target = messageData.type === 'receive' && messageData.toType === 0
                 ? messageData.from
                 : messageData.to;
+
+            if (messageData.encrypted) {
+                this.e2eeRequiredTargets.add(messageData.target);
+            }
 
             if (this.messageHandler) {
                 await this.messageHandler(messageData);
